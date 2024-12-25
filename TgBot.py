@@ -31,7 +31,8 @@ def index():
     return "Webserver is running!"
 
 def run_flask():
-    app.run(host="0.0.0.0", port=4000)
+    port = int(os.environ.get("PORT", 4000))
+    app.run(host="0.0.0.0", port=port)
 
 
 def get_current_time_kiev():
