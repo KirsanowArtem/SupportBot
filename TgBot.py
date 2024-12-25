@@ -603,7 +603,7 @@ async def o(update: Update, context: CallbackContext):
 
 
 
-def main():
+async def main():
     application = Application.builder().token(BOTTOCEN).build()
 
     application.add_handler(CommandHandler("start", start))
