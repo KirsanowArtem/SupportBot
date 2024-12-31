@@ -463,22 +463,30 @@ async def alllist(update: Update, context):
 
 async def allmassage(update: Update, context):
     user = update.message.from_user.username
+
+    # Проверка прав
     if update.message.chat.id != CREATOR_CHAT_ID:
         if not is_programmer(user) and not is_admin(user):
             reply = await update.message.reply_text("Ця команда доступна тільки администраторам бота.")
-            asyncio.create_task(
-                auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=10))
+            asyncio.create_task(auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=10))
             return
 
+    # Проверка наличия текста после команды
     if not context.args:
         await update.message.reply_text("Будь ласка, укажіть текст повідомлення після команди.")
         return
 
-    message_text = ' '.join(context.args)
+    # Получение полного текста сообщения (учитывая переносы строк)
+    message_text = update.message.text.split(' ', 1)[1]  # Берём текст после команды
+
     unique_users = set(sent_messages.values())
 
+    # Отправка сообщения всем пользователям
     for user_id in unique_users:
-        await context.bot.send_message(chat_id=user_id, text=message_text)
+        try:
+            await context.bot.send_message(chat_id=user_id, text=message_text)
+        except Exception as e:
+            print(f"Ошибка при отправке сообщения пользователю {user_id}: {e}")
 
     await update.message.reply_text("Повідомлення відправлено всім користувачам.")
 
