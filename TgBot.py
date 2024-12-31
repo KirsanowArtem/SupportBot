@@ -23,12 +23,12 @@ photo_sending = False
 BOTTOCEN = "7651661492:AAHrqy1qoKoUB33U2uOOCqRdznuOrpqg-hw"
 
 
-
 app = Flask(__name__)
 
 @app.route("/")
 def index():
     return "@Supp0rtsBot"
+
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
@@ -45,7 +45,7 @@ async def start(update: Update, context):
     user = update.message.from_user
     chat_id = update.effective_chat.id
 
-    if chat_id == -1002340443739:
+    if chat_id == CREATOR_CHAT_ID:
         await update.message.reply_text("Команда /start недоступна в цій групі.")
         return
 
@@ -147,12 +147,21 @@ async def auto_delete_message(bot, chat_id, message_id, delay):
 
 async def massage(update: Update, context):
     user_id = update.message.from_user.id
+
+    if user_id not in users_info:
+        users_info[user_id] = {
+            'join_date': get_current_time_kiev(),
+            'rating': 0
+        }
+
+
     if user_id in muted_users and muted_users[user_id]['expiration'] > datetime.now():
         reply = await update.message.reply_text("Ви в муті й не можете надсилати повідомлення.")
         asyncio.create_task(auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=10))
         return
+
     reply = await update.message.reply_text(
-        "Введіть ваше повідомлення, і його буде відправлено адміністраторам бота. Введіть /stopmassage, щоб завершити введення повідомлень.."
+        "Введіть ваше повідомлення, і його буде відправлено адміністраторам бота. Введіть /stopmassage, щоб завершити введення повідомлень."
     )
 
     context.user_data['waiting_for_message'] = True
@@ -299,6 +308,7 @@ async def mute(update: Update, context):
     else:
         reply = await update.message.reply_text(f"Користувач @{username} не знайдений.")
         asyncio.create_task(auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=60))
+
 
 async def unmute(update: Update, context):
     user = update.message.from_user.username
@@ -464,24 +474,20 @@ async def alllist(update: Update, context):
 async def allmassage(update: Update, context):
     user = update.message.from_user.username
 
-    # Проверка прав
     if update.message.chat.id != CREATOR_CHAT_ID:
         if not is_programmer(user) and not is_admin(user):
             reply = await update.message.reply_text("Ця команда доступна тільки администраторам бота.")
             asyncio.create_task(auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=10))
             return
 
-    # Проверка наличия текста после команды
     if not context.args:
         await update.message.reply_text("Будь ласка, укажіть текст повідомлення після команди.")
         return
 
-    # Получение полного текста сообщения (учитывая переносы строк)
-    message_text = update.message.text.split(' ', 1)[1]  # Берём текст после команды
+    message_text = update.message.text.split(' ', 1)[1]
 
     unique_users = set(sent_messages.values())
 
-    # Отправка сообщения всем пользователям
     for user_id in unique_users:
         try:
             await context.bot.send_message(chat_id=user_id, text=message_text)
@@ -608,7 +614,6 @@ async def o(update: Update, context: CallbackContext):
     programmer_list = "\n".join(programmers) if programmers else "Список программистов пуст."
     admin_list = "\n".join(admins) if admins else "Список администраторів пуст."
     await update.message.reply_text(f"Програмісти:\n{programmer_list}\n\nАдминистраторы:\n{admin_list}")
-
 
 
 async def main():
