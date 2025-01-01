@@ -57,14 +57,14 @@ async def start(update: Update, context):
 
     keyboard = [
         ["/start", "/rate"],
-        ["/massage", "/stopmassage"],
+        ["/message", "/stopmessage"],
         ["/fromus", "/help"],
     ]
 
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     await update.message.reply_text(
-        "Привіт! Я ваш бот. Введіть команду /rate для відгуку, /massage для написання в підтримку або /help для ознайомлення з командами.",
+        "Привіт! Я ваш бот. Введіть команду /rate для відгуку, /message для написання в підтримку або /help для ознайомлення з командами.",
         reply_markup=reply_markup
     )
 
@@ -145,7 +145,7 @@ async def auto_delete_message(bot, chat_id, message_id, delay):
     await bot.delete_message(chat_id=chat_id, message_id=message_id)
 
 
-async def massage(update: Update, context):
+async def message(update: Update, context):
     user_id = update.message.from_user.id
 
     if user_id not in users_info:
@@ -161,7 +161,7 @@ async def massage(update: Update, context):
         return
 
     reply = await update.message.reply_text(
-        "Введіть ваше повідомлення, і його буде відправлено адміністраторам бота. Введіть /stopmassage, щоб завершити введення повідомлень."
+        "Введіть ваше повідомлення, і його буде відправлено адміністраторам бота. Введіть /stopmessage, щоб завершити введення повідомлень."
     )
 
     context.user_data['waiting_for_message'] = True
@@ -169,7 +169,7 @@ async def massage(update: Update, context):
     asyncio.create_task(auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=5))
 
 
-async def stopmassage(update: Update, context):
+async def stopmessage(update: Update, context):
     if context.user_data.get('waiting_for_message'):
         reply = await update.message.reply_text("Ви завершили введення повідомлень.")
         context.user_data['waiting_for_message'] = False
@@ -217,7 +217,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply = await update.message.reply_text("Ваше повідомлення надіслано адміністраторам бота.")
             asyncio.create_task(auto_delete_message(context.bot, chat_id=reply.chat.id, message_id=reply.message_id, delay=5, parse_mode = "MarkdownV2"))
         else:
-            await update.message.reply_text("Введіть /massage, щоб надсилати повідомлення адміністраторам бота.")
+            await update.message.reply_text("Введіть /message, щоб надсилати повідомлення адміністраторам бота.")
     else:
         if update.effective_user.id != context.bot.id:
             if update.message.reply_to_message:
@@ -471,7 +471,7 @@ async def alllist(update: Update, context):
     await update.message.reply_text(response)
 
 
-async def allmassage(update: Update, context):
+async def allmessage(update: Update, context):
     user = update.message.from_user.username
 
     if update.message.chat.id != CREATOR_CHAT_ID:
@@ -506,15 +506,15 @@ async def help(update: Update, context):
             "/unmute <користувач> - Розмутити користувача.\n"
             "/mutelist - Показати список замучених користувачів.\n"
             "/alllist - Показати всіх користувачів.\n"
-            "/allmassage <повідомлення> - Надіслати повідомлення всім користувачам.\n"
+            "/allmessage <повідомлення> - Надіслати повідомлення всім користувачам.\n"
         )
     else:
         help_text = (
             "Доступні команди в боті:\n"
             "/start - Запустити бота.\n"
             "/rate - Залишити відгук.\n"
-            "/massage - Почати введення повідомлень адміністраторам.\n"
-            "/stopmassage - Завершити введення повідомлень.\n"
+            "/message - Почати введення повідомлень адміністраторам.\n"
+            "/stopmessage - Завершити введення повідомлень.\n"
             "/fromus - Інформація про створювача.\n"
             "/help - Показати доступні команди.\n"
         )
@@ -621,15 +621,15 @@ async def main():
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("rate", rate))
-    application.add_handler(CommandHandler("massage", massage))
-    application.add_handler(CommandHandler("stopmassage", stopmassage))
+    application.add_handler(CommandHandler("message", message))
+    application.add_handler(CommandHandler("stopmessage", stopmessage))
     application.add_handler(CommandHandler("fromus", fromus))
     application.add_handler(CommandHandler("help", help))
     application.add_handler(CommandHandler("mute", mute))
     application.add_handler(CommandHandler("unmute", unmute))
     application.add_handler(CommandHandler("mutelist", mutelist))
     application.add_handler(CommandHandler("alllist", alllist))
-    application.add_handler(CommandHandler("allmassage", allmassage))
+    application.add_handler(CommandHandler("allmessage", allmessage))
     application.add_handler(CommandHandler("admin", admin))
     application.add_handler(CommandHandler("deleteadmin", deleteadmin))
     application.add_handler(CommandHandler("programier", programier))
