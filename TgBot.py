@@ -610,7 +610,7 @@ async def deleteprogramier(update: Update, context: CallbackContext):
         await update.message.reply_text("Ця команда доступна лише адміністраторам.")
 
 
-async def o(update: Update, context: CallbackContext):
+async def info(update: Update, context: CallbackContext):
     programmer_list = "\n".join(programmers) if programmers else "Список программистов пуст."
     admin_list = "\n".join(admins) if admins else "Список администраторів пуст."
     await update.message.reply_text(f"Програмісти:\n{programmer_list}\n\nАдминистраторы:\n{admin_list}")
@@ -634,7 +634,7 @@ async def main():
     application.add_handler(CommandHandler("deleteadmin", deleteadmin))
     application.add_handler(CommandHandler("programier", programier))
     application.add_handler(CommandHandler("deleteprogramier", deleteprogramier))
-    application.add_handler(CommandHandler("o", o))
+    application.add_handler(CommandHandler("info", info))
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.TEXT | filters.PHOTO | filters.Document.ALL, handle_message))
