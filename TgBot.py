@@ -660,7 +660,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    #flask_thread = threading.Thread(target=run_flask)
-    #flask_thread.start()
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
 
-    #asyncio.run(main())
+    asyncio.run(main())
