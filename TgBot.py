@@ -3,9 +3,10 @@ import nest_asyncio
 import os
 import pytz
 import threading
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile, ReplyKeyboardMarkup
+import json
+
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile, ReplyKeyboardMarkup, ChatPermissions
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext, ContextTypes
-from telegram import ChatPermissions
 from datetime import datetime, timedelta
 from flask import Flask
 
@@ -14,14 +15,14 @@ nest_asyncio.apply()
 CREATOR_CHAT_ID = -1002340443739
 sent_messages = {}
 muted_users = {}
-users_info = {}
+
 admins = []
 programmers = ["ArtemKirss"]
 total_score = 0
 num_of_ratings = 0
 photo_sending = False
 BOTTOCEN = "7651661492:AAHrqy1qoKoUB33U2uOOCqRdznuOrpqg-hw"
-
+DATA_FILE = "data.json"
 
 app = Flask(__name__)
 
@@ -34,6 +35,17 @@ def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
 
+def save_data(data):
+    with open(DATA_FILE, "w", encoding="utf-8") as file:
+        json.dump(data, file, ensure_ascii=False, indent=4)
+
+def load_data():
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    return {}
+
+users_info = load_data()
 
 def get_current_time_kiev():
     kiev_tz = pytz.timezone('Europe/Kiev')
@@ -49,11 +61,12 @@ async def start(update: Update, context):
         await update.message.reply_text("Команда /start недоступна в цій групі.")
         return
 
-    if user.id not in users_info:
-        users_info[user.id] = {
+    if str(user.id) not in users_info:
+        users_info[str(user.id)] = {
             'join_date': get_current_time_kiev(),
             'rating': 0
         }
+        save_data(users_info)  # Сохраняем изменения
 
     keyboard = [
         ["/start", "/rate"],
@@ -647,7 +660,7 @@ async def main():
 
 
 if __name__ == "__main__":
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.start()
+    #flask_thread = threading.Thread(target=run_flask)
+    #flask_thread.start()
 
-    asyncio.run(main())
+    #asyncio.run(main())
