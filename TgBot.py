@@ -4,11 +4,13 @@ import os
 import pytz
 import threading
 import json
+import pandas as pd
 
 from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton, InputFile, ReplyKeyboardMarkup, ChatPermissions
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, CallbackContext, ContextTypes
 from datetime import datetime, timedelta
 from flask import Flask
+from apscheduler.schedulers.background import BackgroundScheduler
 
 nest_asyncio.apply()
 
@@ -629,6 +631,40 @@ async def info(update: Update, context: CallbackContext):
     await update.message.reply_text(f"Програмісти:\n{programmer_list}\n\nАдминистраторы:\n{admin_list}")
 
 
+def export_to_excel():
+    data = [{'user_id': user_id, **info} for user_id, info in users_info.items()]
+    df = pd.DataFrame(data)
+    excel_file = "users_data.xlsx"
+    df.to_excel(excel_file, index=False, encoding='utf-8')
+    print(f"Данные успешно экспортированы в {excel_file}")
+
+
+def import_from_excel(file_path):
+    global users_info
+    try:
+        df = pd.read_excel(file_path, encoding='utf-8')
+        users_info = {str(row['user_id']): row.to_dict() for _, row in df.iterrows()}
+        save_data(users_info)
+        print("Данные успешно импортированы из Excel")
+    except Exception as e:
+        print(f"Ошибка импорта: {e}")
+
+
+async def load_excel(update: Update, context: CallbackContext):
+    if not context.args:
+        await update.message.reply_text("Укажите путь к Excel-файлу.")
+        return
+    file_path = context.args[0]
+    import_from_excel(file_path)
+    await update.message.reply_text("Данные успешно загружены из файла.")
+
+
+def schedule_tasks():
+    scheduler = BackgroundScheduler(timezone='Europe/Kiev')
+    scheduler.add_job(export_to_excel, 'cron', hour=0, minute=0)
+    scheduler.start()
+
+
 async def main():
     application = Application.builder().token(BOTTOCEN).build()
 
@@ -648,6 +684,7 @@ async def main():
     application.add_handler(CommandHandler("programier", programier))
     application.add_handler(CommandHandler("deleteprogramier", deleteprogramier))
     application.add_handler(CommandHandler("info", info))
+    application.add_handler(CommandHandler("load_excel", load_excel))
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.TEXT | filters.PHOTO | filters.Document.ALL, handle_message))
@@ -662,5 +699,6 @@ async def main():
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
+    schedule_tasks()
 
     asyncio.run(main())
