@@ -12,9 +12,14 @@ from datetime import datetime, timedelta
 from flask import Flask
 from apscheduler.schedulers.background import BackgroundScheduler
 
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.styles import Alignment, Border, Side
+
 nest_asyncio.apply()
 
 CREATOR_CHAT_ID = -1002340443739
+SAVE_CHAT_ID = -4768784004
 sent_messages = {}
 muted_users = {}
 
@@ -23,8 +28,9 @@ programmers = ["ArtemKirss"]
 total_score = 0
 num_of_ratings = 0
 photo_sending = False
-BOTTOCEN = "7651661492:AAHrqy1qoKoUB33U2uOOCqRdznuOrpqg-hw"
+BOTTOCEN = "-"
 DATA_FILE = "data.json"
+EXCEL_FILE = "user_data_export.xlsx"
 
 app = Flask(__name__)
 
@@ -630,40 +636,118 @@ async def info(update: Update, context: CallbackContext):
     admin_list = "\n".join(admins) if admins else "Список администраторів пуст."
     await update.message.reply_text(f"Програмісти:\n{programmer_list}\n\nАдминистраторы:\n{admin_list}")
 
+def export_users_to_excel(users_info, sent_messages, muted_users, file_path):
+    users_data = []
 
-def export_to_excel():
-    data = [{'user_id': user_id, **info} for user_id, info in users_info.items()]
-    df = pd.DataFrame(data)
-    excel_file = "users_data.xlsx"
-    df.to_excel(excel_file, index=False, encoding='utf-8')
-    print(f"Данные успешно экспортированы в {excel_file}")
+    # Формируем данные пользователей
+    for user_id, info in users_info.items():
+        users_data.append({
+            "ID пользователя": user_id,
+            "Имя пользователя": info.get("username", "Не указано"),
+            "Дата захода": info.get("join_date", "Не указано"),
+            "Оценка": info.get("rating", 0)
+        })
 
+    users_df = pd.DataFrame(users_data)
 
-def import_from_excel(file_path):
-    global users_info
+    # Формируем данные замученных пользователей
+    muted_data = []
+    for user_id, mute_info in muted_users.items():
+        muted_data.append({
+            "ID пользователя": user_id,
+            "Причина": mute_info["reason"],
+            "Дата окончания мута": mute_info["expiration"].strftime("%d/%m/%Y %H:%M")
+        })
+
+    muted_df = pd.DataFrame(muted_data)
+
+    # Сохраняем данные в Excel
+    with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
+        users_df.to_excel(writer, sheet_name="Users", index=False)
+        muted_df.to_excel(writer, sheet_name="Muted", index=False)
+
+    # Применяем базовое форматирование
+    wb = load_workbook(file_path)
+
+    for sheet_name in ["Users", "Muted"]:
+        sheet = wb[sheet_name]
+        for row in sheet.iter_rows(min_row=1, max_row=sheet.max_row):
+            for cell in row:
+                cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="top")
+                cell.border = Border(
+                    left=Side(style="thin"),
+                    right=Side(style="thin"),
+                    top=Side(style="thin"),
+                    bottom=Side(style="thin")
+                )
+
+    wb.save(file_path)
+
+# Функция для импорта данных из Excel
+def import_users_from_excel(file_path):
+    global users_info, muted_users
+
     try:
-        df = pd.read_excel(file_path, encoding='utf-8')
-        users_info = {str(row['user_id']): row.to_dict() for _, row in df.iterrows()}
-        save_data(users_info)
-        print("Данные успешно импортированы из Excel")
+        wb = load_workbook(file_path)
+        users_sheet = wb["Users"]
+        muted_sheet = wb["Muted"]
+
+        # Читаем данные пользователей
+        users_info.clear()
+        for row in users_sheet.iter_rows(min_row=2, values_only=True):
+            user_id, username, join_date, rating = row
+            users_info[user_id] = {
+                "username": username,
+                "join_date": join_date,
+                "rating": rating
+            }
+
+        # Читаем данные замученных пользователей
+        muted_users.clear()
+        for row in muted_sheet.iter_rows(min_row=2, values_only=True):
+            user_id, reason, expiration = row
+            muted_users[user_id] = {
+                "reason": reason,
+                "expiration": datetime.strptime(expiration, "%d/%m/%Y %H:%M")
+            }
+
+        return "Данные успешно импортированы."
     except Exception as e:
-        print(f"Ошибка импорта: {e}")
+        return f"Ошибка импорта: {e}"
 
-
-async def load_excel(update: Update, context: CallbackContext):
-    if not context.args:
-        await update.message.reply_text("Укажите путь к Excel-файлу.")
+# Команда для экспорта данных
+async def get_alllist(update: Update, context: CallbackContext):
+    if update.message.chat.id != SAVE_CHAT_ID:
+        await update.message.reply_text("Эта команда доступна только в группе SAVE_CHAT_ID.")
         return
-    file_path = context.args[0]
-    import_from_excel(file_path)
-    await update.message.reply_text("Данные успешно загружены из файла.")
 
+    export_users_to_excel(users_info, sent_messages, muted_users, EXCEL_FILE)
 
-def schedule_tasks():
-    scheduler = BackgroundScheduler(timezone='Europe/Kiev')
-    scheduler.add_job(export_to_excel, 'cron', hour=0, minute=0)
-    scheduler.start()
+    await update.message.reply_document(document=open(EXCEL_FILE, "rb"), caption="Данные экспортированы.")
 
+# Команда для импорта данных
+async def set_alllist(update: Update, context: CallbackContext):
+    if update.message.chat.id != SAVE_CHAT_ID:
+        await update.message.reply_text("Эта команда доступна только в группе SAVE_CHAT_ID.")
+        return
+
+    context.user_data["awaiting_file"] = True
+    await update.message.reply_text("Пожалуйста, отправьте Excel-файл для импорта.")
+
+# Обработка загружаемого файла
+async def handle_uploaded_file(update: Update, context: CallbackContext):
+    if not context.user_data.get("awaiting_file"):
+        await update.message.reply_text("Сначала выполните команду /set_alllist.")
+        return
+
+    file = await context.bot.get_file(update.message.document.file_id)
+    file_path = "uploaded_data.xlsx"
+    await file.download_to_drive(file_path)
+
+    result_message = import_users_from_excel(file_path)
+    await update.message.reply_text(result_message)
+
+    context.user_data["awaiting_file"] = False
 
 async def main():
     application = Application.builder().token(BOTTOCEN).build()
@@ -684,7 +768,9 @@ async def main():
     application.add_handler(CommandHandler("programier", programier))
     application.add_handler(CommandHandler("deleteprogramier", deleteprogramier))
     application.add_handler(CommandHandler("info", info))
-    application.add_handler(CommandHandler("load_excel", load_excel))
+    application.add_handler(CommandHandler("get_alllist", get_alllist))
+    application.add_handler(CommandHandler("set_alllist", set_alllist))
+
     application.add_handler(CallbackQueryHandler(button_callback))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.TEXT | filters.PHOTO | filters.Document.ALL, handle_message))
@@ -699,6 +785,6 @@ async def main():
 if __name__ == "__main__":
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.start()
-    schedule_tasks()
+
 
     asyncio.run(main())
